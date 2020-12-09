@@ -1,43 +1,41 @@
 use std::fs;
 
+fn parse_linechange(contents: &Vec<&str>, line: usize) -> usize {
+    match &contents[line].chars().nth(4).unwrap() {
+        '+' => line + contents[line][5..].parse::<usize>().unwrap(),
+        '-' => line - contents[line][5..].parse::<usize>().unwrap(),
+        other => {
+            panic!("Other token encountered, not supported: {}", other)
+        }
+    }
+}
+
 fn parse_statement(
-    contents: Vec<&str>,
+    contents: &Vec<&str>,
     visited: &mut Vec<usize>,
     line: usize,
     acc: isize,
-) -> isize {
+) -> Option<isize> {
     if visited.contains(&line) {
-        return acc;
+        return None;
+    } else if line >= 622 {
+        println!("line {} reached!", line);
+        return Some(acc);
     }
     visited.push(line);
     println!("handling line {}: {}", line, &contents[line]);
     match &contents[line][0..3] {
-        "acc" => match &contents[line].chars().nth(4).unwrap() {
-            '+' => {
-                let val = &contents[line][5..].parse::<isize>().unwrap();
-                parse_statement(contents, visited, line + 1, acc + val)
-            }
-            '-' => {
-                let val = &contents[line][5..].parse::<isize>().unwrap();
-                parse_statement(contents, visited, line + 1, acc - val)
-            }
-            other => {
-                panic!("Other token encountered, not supported: {}", other)
-            }
+        "acc" => {
+            let val = &contents[line][4..].parse::<isize>().unwrap();
+            parse_statement(contents, visited, line + 1, acc + val)
+        }
+        "nop" => match parse_statement(&contents, visited, line + 1, acc) {
+            None => parse_statement(&contents, visited, parse_linechange(contents, line), acc),
+            Some(acc) => Some(acc),
         },
-        "nop" => parse_statement(contents, visited, line + 1, acc),
-        "jmp" => match &contents[line].chars().nth(4).unwrap() {
-            '+' => {
-                let line = line + contents[line][5..].parse::<usize>().unwrap();
-                parse_statement(contents, visited, line, acc)
-            }
-            '-' => {
-                let line = line - contents[line][5..].parse::<usize>().unwrap();
-                parse_statement(contents, visited, line, acc)
-            }
-            other => {
-                panic!("Other token encountered, not supported: {}", other)
-            }
+        "jmp" => match parse_statement(&contents, visited, parse_linechange(contents, line), acc) {
+            None => parse_statement(contents, visited, line + 1, acc),
+            Some(acc) => Some(acc),
         },
         other => {
             panic!("Other token encountered, not supported: {}", other)
@@ -51,6 +49,6 @@ fn main() {
     let contents: String =
         fs::read_to_string(filename).expect("Something went wrong reading the file");
     let contents: Vec<&str> = contents.lines().collect();
-    let res = parse_statement(contents, &mut Vec::new(), 0, 0);
-    println!("res: {}", res);
+    let res = parse_statement(&contents, &mut Vec::new(), 0, 0);
+    println!("res: {}", res.unwrap());
 }
