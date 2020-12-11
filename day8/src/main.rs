@@ -15,6 +15,7 @@ fn parse_statement(
     visited: &mut Vec<usize>,
     line: usize,
     acc: isize,
+    changed: bool,
 ) -> Option<isize> {
     if visited.contains(&line) {
         return None;
@@ -27,14 +28,38 @@ fn parse_statement(
     match &contents[line][0..3] {
         "acc" => {
             let val = &contents[line][4..].parse::<isize>().unwrap();
-            parse_statement(contents, visited, line + 1, acc + val)
+            parse_statement(contents, visited, line + 1, acc + val, changed)
         }
-        "nop" => match parse_statement(&contents, visited, line + 1, acc) {
-            None => parse_statement(&contents, visited, parse_linechange(contents, line), acc),
+        "nop" => match parse_statement(&contents, visited, line + 1, acc, changed) {
+            None => {
+                if changed {
+                    return None;
+                } else {
+                    parse_statement(
+                        &contents,
+                        visited,
+                        parse_linechange(contents, line),
+                        acc,
+                        true,
+                    )
+                }
+            }
             Some(acc) => Some(acc),
         },
-        "jmp" => match parse_statement(&contents, visited, parse_linechange(contents, line), acc) {
-            None => parse_statement(contents, visited, line + 1, acc),
+        "jmp" => match parse_statement(
+            &contents,
+            visited,
+            parse_linechange(contents, line),
+            acc,
+            changed,
+        ) {
+            None => {
+                if changed {
+                    None
+                } else {
+                    parse_statement(contents, visited, line + 1, acc, true)
+                }
+            }
             Some(acc) => Some(acc),
         },
         other => {
@@ -49,6 +74,6 @@ fn main() {
     let contents: String =
         fs::read_to_string(filename).expect("Something went wrong reading the file");
     let contents: Vec<&str> = contents.lines().collect();
-    let res = parse_statement(&contents, &mut Vec::new(), 0, 0);
+    let res = parse_statement(&contents, &mut Vec::new(), 0, 0, false);
     println!("res: {}", res.unwrap());
 }
